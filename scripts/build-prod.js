@@ -53,8 +53,8 @@ async function build() {
         
         // ADDED: --mangle reserved=[...]
         // This ensures external calls like .parse() and .tokenize() don't break.
-        const reserved = "reserved=['tokenize','parse','execute','readAxiomFile','variables','errors']";
-        execSync(`npx terser "${input}" --compress --mangle ${reserved} -o "${output}"`);
+        const reservedNames = "reserved=['tokenize','parse','execute','readAxiomFile','variables','errors']";
+        execSync(`npx terser "${input}" --compress --mangle ${reservedNames} -o "${output}"`);
       }
 
       // 4. Move minified files back to original folder
