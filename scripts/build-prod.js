@@ -50,14 +50,24 @@ async function build() {
         const output = path.join(distPath, file);
         
         console.log(`  ⚡ Minifying: ${folder}/${file}`);
-        // Using --mangle to rename variables and --compress to remove dead code
-        execSync(`npx terser "${input}" --compress --mangle -o "${output}"`);
+        
+        // ADDED: --mangle reserved=[...]
+        // This ensures external calls like .parse() and .tokenize() don't break.
+        const reserved = "reserved=['tokenize','parse','execute','readAxiomFile','variables','errors']";
+        execSync(`npx terser "${input}" --compress --mangle ${reserved} -o "${output}"`);
       }
 
       // 4. Move minified files back to original folder
       // We empty the source first to ensure a clean swap
       fs.emptyDirSync(srcPath);
       fs.copySync(distPath, srcPath);
+
+      // Restore executable permissions for the CLI
+      if (folder === 'cli') {
+        fs.readdirSync(srcPath).forEach(f => {
+          fs.chmodSync(path.join(srcPath, f), '755');
+        });
+      }
     }
 
     // 5. Cleanup dist
