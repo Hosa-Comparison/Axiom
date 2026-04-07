@@ -1,120 +1,133 @@
 const pc = require('picocolors');
 
-class Lexer {
-  constructor(source) {
-    this.source = source;
-    this.tokens = [];
+class Parser {
+  constructor(tokens) {
+    this.tokens = tokens;
     this.current = 0;
-    this.line = 1;
-    this.col = 1;
-    
-    this.keywords = {
-      'assign': 'KEYWORD_ASSIGN',
-      'import': 'KEYWORD_IMPORT',
-      'func': 'KEYWORD_FUNC',
-      'print': 'IDENTIFIER',
-      'var': 'KEYWORD_VAR'
-    };
   }
 
-  tokenize() {
+  parse() {
+    const statements = [];
     while (!this.isAtEnd()) {
-      const char = this.peek();
+      statements.push(this.parseStatement());
+    }
+    return statements;
+  }
 
-      if (/\s/.test(char)) {
-        if (char === '\n') { this.line++; this.col = 0; }
+  parseStatement() {
+    const token = this.peek();
+
+    if (token.type === 'KEYWORD_VAR' || token.type === 'KEYWORD_ASSIGN') {
+      return this.parseAssignment();
+    }
+
+    if (token.type === 'IDENTIFIER' && this.peekNext()?.type === 'LPAREN') {
+      return this.parseCallStatement();
+    }
+
+    return this.parseExpressionStatement();
+  }
+
+  parseAssignment() {
+    this.advance(); // consume 'var' or 'assign'
+    const name = this.consume('IDENTIFIER', 'Expect variable name.');
+    this.consume('ASSIGN', "Expect '=' after variable name.");
+    const value = this.parseExpression();
+    this.consume('SEMICOLON', "Expect ';' after assignment.");
+    return { type: 'Assignment', name: name.value, value };
+  }
+
+  parseCallStatement() {
+    const expr = this.parsePrimary();
+    this.consume('SEMICOLON', "Expect ';' after function call.");
+    return expr;
+  }
+
+  parseExpressionStatement() {
+    const expr = this.parseExpression();
+    this.consume('SEMICOLON', "Expect ';' after expression.");
+    return expr;
+  }
+
+  parseExpression() {
+    return this.parseBinaryExpression();
+  }
+
+  parseBinaryExpression() {
+    let left = this.parsePrimary();
+
+    while (this.match('PLUS', 'MINUS', 'STAR', 'SLASH')) {
+      const operator = this.previous().value;
+      const right = this.parsePrimary();
+      left = { type: 'BinaryExpression', left, operator, right };
+    }
+
+    return left;
+  }
+
+  parsePrimary() {
+    if (this.match('NUMBER', 'STRING')) {
+      return { type: 'Literal', value: this.previous().value };
+    }
+
+    if (this.match('IDENTIFIER')) {
+      const name = this.previous().value;
+      if (this.match('LPAREN')) {
+        const args = [];
+        if (!this.check('RPAREN')) {
+          do {
+            args.push(this.parseExpression());
+          } while (this.match('COMMA'));
+        }
+        this.consume('RPAREN', "Expect ')' after arguments.");
+        return { type: 'CallExpression', callee: name, arguments: args };
+      }
+      return { type: 'Identifier', name };
+    }
+
+    if (this.match('LPAREN')) {
+      const expr = this.parseExpression();
+      this.consume('RPAREN', "Expect ')' after expression.");
+      return expr;
+    }
+
+    const token = this.peek();
+    console.error(pc.red(`\nPARSE_001: Unexpected token '${pc.bold(token.type)}' at ${token.line}:${token.col}`));
+    process.exit(1);
+  }
+
+  // Helpers
+  match(...types) {
+    for (const type of types) {
+      if (this.check(type)) {
         this.advance();
-        continue;
+        return true;
       }
-
-      if (/[a-zA-Z_]/.test(char)) {
-        this.readIdentifier();
-        continue;
-      }
-
-      if (/[0-9]/.test(char)) {
-        this.readNumber();
-        continue;
-      }
-
-      if (char === '"') {
-        this.readString();
-        continue;
-      }
-
-    switch (char) {
-        case '(': this.addToken('LPAREN', '('); break;
-        case ')': this.addToken('RPAREN', ')'); break;
-        case '{': this.addToken('LBRACE', '{'); break;
-        case '}': this.addToken('RBRACE', '}'); break;
-        case ';': this.addToken('SEMICOLON', ';'); break;
-        case '.': this.addToken('DOT', '.'); break;
-        case ',': this.addToken('COMMA', ','); break;
-        case '+': this.addToken('PLUS', '+'); break;
-        case '-': this.addToken('MINUS', '-'); break;
-        case '*': this.addToken('STAR', '*'); break;
-        case '/': this.addToken('SLASH', '/'); break; 
-        case '=':
-          if (this.peekNext() === '=') {
-            this.addToken('EQUALS_EQUALS', '==');
-            this.current++;
-            this.col++;
-          } else {
-            this.addToken('ASSIGN', '=');
-          }
-          break;
-        default:
-          console.error(pc.red(`\nLEX_001: Unexpected character '${pc.bold(char)}' at ${this.line}:${this.col}`));
-          process.exit(1);
-      }
-      this.advance();
     }
-
-    this.addToken('EOF', null);
-    return this.tokens;
+    return false;
   }
 
-readIdentifier() {
-    let value = '';
-    const startCol = this.col;
-    
-    while (!this.isAtEnd() && /[a-zA-Z0-9_\.]/.test(this.peek())) {
-      value += this.advance();
-    }
-    
-    if (value.length === 0) return;
-
-    const type = this.keywords[value] || 'IDENTIFIER';
-    this.tokens.push({ type, value, line: this.line, col: startCol });
+  check(type) {
+    if (this.isAtEnd()) return false;
+    return this.peek().type === type;
   }
 
-  readNumber() {
-    let value = '';
-    const startCol = this.col;
-    while (/[0-9]/.test(this.peek())) { value += this.advance(); }
-    this.tokens.push({ type: 'NUMBER', value: Number(value), line: this.line, col: startCol });
+  advance() {
+    if (!this.isAtEnd()) this.current++;
+    return this.previous();
   }
 
-  readString() {
-    this.advance();
-    let value = '';
-    const startCol = this.col;
-    while (this.peek() !== '"' && !this.isAtEnd()) {
-      if (this.peek() === '\n') {
-        console.error(pc.red(`\nLEX_002: Unterminated string at ${this.line}:${this.col}`));
-        process.exit(1);
-      }
-      value += this.advance();
-    }
-    this.advance();
-    this.tokens.push({ type: 'STRING', value, line: this.line, col: startCol });
-  }
+  isAtEnd() { return this.peek().type === 'EOF'; }
+  peek() { return this.tokens[this.current]; }
+  peekNext() { return this.tokens[this.current + 1]; }
+  previous() { return this.tokens[this.current - 1]; }
 
-  peek() { return this.source[this.current] || null; }
-  peekNext() { if (this.current + 1 >= this.source.length) return null; return this.source[this.current + 1]; }
-  advance() { const char = this.source[this.current++]; this.col++; return char; }
-  isAtEnd() { return this.current >= this.source.length; }
-  addToken(type, value) { this.tokens.push({ type, value, line: this.line, col: this.col }); }
+  consume(type, message) {
+    if (this.check(type)) return this.advance();
+    const token = this.peek();
+    console.error(pc.red(`\nPARSE_002: ${message} (Found '${token.type}' at ${token.line}:${token.col})`));
+    process.exit(1);
+  }
 }
 
-module.exports = Lexer;
+module.exports = Parser;
