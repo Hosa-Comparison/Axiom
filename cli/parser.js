@@ -7,40 +7,49 @@ class Parser {
   }
 
   parse() {
-    const statements = [];
+    const body = [];
     while (!this.isAtEnd()) {
-      statements.push(this.parseStatement());
+      body.push(this.parseStatement());
     }
-    return statements;
+    return { type: 'Program', body };
   }
 
   parseStatement() {
     const token = this.peek();
 
-    if (token.type === 'KEYWORD_VAR' || token.type === 'KEYWORD_ASSIGN') {
-      return this.parseAssignment();
-    }
-
-    if (token.type === 'IDENTIFIER' && this.peekNext()?.type === 'LPAREN') {
-      return this.parseCallStatement();
-    }
+    if (token.type === 'KEYWORD_IMPORT') return this.parseImport();
+    if (token.type === 'KEYWORD_ASSIGN') return this.parseHeaderAssignment();
+    if (token.type === 'KEYWORD_VAR') return this.parseVariableDeclaration();
 
     return this.parseExpressionStatement();
   }
 
-  parseAssignment() {
-    this.advance(); // consume 'var' or 'assign'
-    const name = this.consume('IDENTIFIER', 'Expect variable name.');
-    this.consume('ASSIGN', "Expect '=' after variable name.");
-    const value = this.parseExpression();
-    this.consume('SEMICOLON', "Expect ';' after assignment.");
-    return { type: 'Assignment', name: name.value, value };
+  parseImport() {
+    this.advance();
+    const path = this.consume('STRING', "Expect path string.").value;
+    this.consume('SEMICOLON', "Expect ';' after import.");
+    return { type: 'ImportStatement', path };
   }
 
-  parseCallStatement() {
-    const expr = this.parsePrimary();
-    this.consume('SEMICOLON', "Expect ';' after function call.");
-    return expr;
+  parseHeaderAssignment() {
+    this.advance();
+    const alias = this.consume('IDENTIFIER', "Expect alias name.").value;
+    this.consume('LPAREN', "Expect '(' after alias.");
+    this.consume('IDENTIFIER', "Expect parameter name."); 
+    this.consume('RPAREN', "Expect ')' after parameter.");
+    const mapping = this.consume('IDENTIFIER', "Expect target mapping.").value;
+    
+    this.consume('SEMICOLON', "Expect ';' after assignment.");
+    return { type: 'HeaderAssignment', alias, mapping };
+  }
+
+  parseVariableDeclaration() {
+    this.advance();
+    const name = this.consume('IDENTIFIER', "Expect variable name.").value;
+    this.consume('ASSIGN', "Expect '='.");
+    const value = this.parseExpression();
+    this.consume('SEMICOLON', "Expect ';'.");
+    return { type: 'VariableDeclaration', name, value };
   }
 
   parseExpressionStatement() {
@@ -55,31 +64,25 @@ class Parser {
 
   parseBinaryExpression() {
     let left = this.parsePrimary();
-
     while (this.match('PLUS', 'MINUS', 'STAR', 'SLASH')) {
       const operator = this.previous().value;
       const right = this.parsePrimary();
       left = { type: 'BinaryExpression', left, operator, right };
     }
-
     return left;
   }
 
   parsePrimary() {
-    if (this.match('NUMBER', 'STRING')) {
-      return { type: 'Literal', value: this.previous().value };
-    }
-
+    if (this.match('NUMBER', 'STRING')) return { type: 'Literal', value: this.previous().value };
+    
     if (this.match('IDENTIFIER')) {
       const name = this.previous().value;
       if (this.match('LPAREN')) {
         const args = [];
         if (!this.check('RPAREN')) {
-          do {
-            args.push(this.parseExpression());
-          } while (this.match('COMMA'));
+          do { args.push(this.parseExpression()); } while (this.match('COMMA'));
         }
-        this.consume('RPAREN', "Expect ')' after arguments.");
+        this.consume('RPAREN', "Expect ')'.");
         return { type: 'CallExpression', callee: name, arguments: args };
       }
       return { type: 'Identifier', name };
@@ -87,47 +90,23 @@ class Parser {
 
     if (this.match('LPAREN')) {
       const expr = this.parseExpression();
-      this.consume('RPAREN', "Expect ')' after expression.");
+      this.consume('RPAREN', "Expect ')'.");
       return expr;
     }
 
-    const token = this.peek();
-    console.error(pc.red(`\nPARSE_001: Unexpected token '${pc.bold(token.type)}' at ${token.line}:${token.col}`));
-    process.exit(1);
+    throw new Error(`Unexpected token: ${this.peek().type}`);
   }
 
-  // Helpers
   match(...types) {
-    for (const type of types) {
-      if (this.check(type)) {
-        this.advance();
-        return true;
-      }
-    }
+    for (const type of types) { if (this.check(type)) { this.advance(); return true; } }
     return false;
   }
-
-  check(type) {
-    if (this.isAtEnd()) return false;
-    return this.peek().type === type;
-  }
-
-  advance() {
-    if (!this.isAtEnd()) this.current++;
-    return this.previous();
-  }
-
+  check(type) { return !this.isAtEnd() && this.peek().type === type; }
+  advance() { if (!this.isAtEnd()) this.current++; return this.previous(); }
   isAtEnd() { return this.peek().type === 'EOF'; }
   peek() { return this.tokens[this.current]; }
-  peekNext() { return this.tokens[this.current + 1]; }
   previous() { return this.tokens[this.current - 1]; }
-
-  consume(type, message) {
-    if (this.check(type)) return this.advance();
-    const token = this.peek();
-    console.error(pc.red(`\nPARSE_002: ${message} (Found '${token.type}' at ${token.line}:${token.col})`));
-    process.exit(1);
-  }
+  consume(type, message) { if (this.check(type)) return this.advance(); const token = this.peek(); console.error(pc.red(`\nPARSE_002: ${message} (Found '${pc.bold(token.type)}' at ${token.line}:${token.col})`)); process.exit(1); }
 }
 
 module.exports = Parser;

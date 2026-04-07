@@ -1,6 +1,6 @@
 {
   "name": "axiom",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "description": "Axiom is a programming language - made with JavaScript.",
   "homepage": "https://github.com/Hosa-Comparison/Axiom#readme",
   "bugs": {
@@ -19,8 +19,7 @@
   "main": "cli/axiom-cli.js",
   "scripts": {
     "test": "console.log(\"No test command.\")",
-    "testcli:ver": "npx cross-env NODE_ENV=production node cli/axiom-cli.js -v",
-    "build:prod": "node scripts/build-prod.js"
+    "testcli:ver": "npx cross-env NODE_ENV=production node cli/axiom-cli.js -v"
   },
   "dependencies": {
     "commander": "^14.0.3",

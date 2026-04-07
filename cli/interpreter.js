@@ -5,16 +5,14 @@ class Interpreter {
     this.readAxiomFile = readAxiomFile;
     this.Lexer = Lexer;
     this.Parser = Parser;
-    
     this.variables = {};
-
     this.globalScope = {
-      'console.log': (args) => console.log(...args)
+      'print': (args) => console.log(...args)
     };
   }
 
   execute(ast) {
-    if (ast.type !== 'Program') return;
+    if (!ast || ast.type !== 'Program') return;
     for (const node of ast.body) {
       this.evaluate(node);
     }
@@ -24,6 +22,25 @@ class Interpreter {
     if (!node) return null;
 
     switch (node.type) {
+      case 'Program':
+        return this.execute(node);
+
+      case 'ImportStatement':
+        const headerSource = this.readAxiomFile(node.path);
+        if (headerSource) {
+          const tokens = new this.Lexer(headerSource).tokenize();
+          const headerAst = new this.Parser(tokens).parse();
+          this.execute(headerAst);
+        }
+        break;
+
+      case 'HeaderAssignment':
+        const { alias, mapping } = node;
+        if (mapping === 'console.log') {
+          this.globalScope[alias] = (args) => console.log(...args);
+        }
+        break;
+
       case 'VariableDeclaration':
         this.variables[node.name] = this.evaluate(node.value);
         return this.variables[node.name];
@@ -46,41 +63,23 @@ class Interpreter {
         if (Object.prototype.hasOwnProperty.call(this.variables, node.name)) {
           return this.variables[node.name];
         }
-        console.error(pc.red(`SEM_001: Variable '${node.name}' is not defined.`));
+        console.error(pc.red(`\nSEM_001: Variable '${pc.bold(node.name)}' is not defined.`));
         process.exit(1);
-        break;
-
-      case 'ImportStatement':
-        const headerSource = this.readAxiomFile(node.path);
-        if (headerSource) {
-          const tokens = new this.Lexer(headerSource).tokenize();
-          const headerAst = new this.Parser(tokens).parse();
-          this.execute(headerAst);
-        }
-        break;
-
-      case 'HeaderAssignment':
-        const targetInternal = node.mapping;
-        this.globalScope[node.alias] = (args) => {
-          if (this.globalScope[targetInternal]) {
-            return this.globalScope[targetInternal](args);
-          } else {
-            console.error(pc.red(`Internal mapping '${targetInternal}' not found.`));
-            process.exit(1);
-          }
-        };
-        break;
 
       case 'CallExpression':
         const func = this.globalScope[node.callee];
         if (typeof func === 'function') {
           const resolvedArgs = node.arguments.map(arg => this.evaluate(arg));
           return func(resolvedArgs);
-        } else {
-          console.error(pc.red(`\nSEM_002: Function '${pc.bold(node.callee)}' is not defined.`));
-          process.exit(1);
         }
-        break;
+        console.error(pc.red(`\nSEM_002: Function '${pc.bold(node.callee)}' is not defined.`));
+        process.exit(1);
+
+      case 'ExpressionStatement':
+        return this.evaluate(node.expression);
+        
+      default:
+        return null;
     }
   }
 }

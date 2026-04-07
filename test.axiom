@@ -1,8 +1,0 @@
-import basic.axiomh
-
-var a = 50;
-var b = 25;
-var combined = a + b;
-
-echo("The math result is:", combined);
-echo("Direct math:", 10 * 10);

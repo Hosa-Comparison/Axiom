@@ -11,9 +11,8 @@ class Lexer {
     this.keywords = {
       'assign': 'KEYWORD_ASSIGN',
       'import': 'KEYWORD_IMPORT',
-      'func': 'KEYWORD_FUNC',
-      'print': 'IDENTIFIER',
-      'var': 'KEYWORD_VAR'
+      'var': 'KEYWORD_VAR',
+      'func': 'KEYWORD_FUNC'
     };
   }
 
@@ -42,7 +41,7 @@ class Lexer {
         continue;
       }
 
-    switch (char) {
+      switch (char) {
         case '(': this.addToken('LPAREN', '('); break;
         case ')': this.addToken('RPAREN', ')'); break;
         case '{': this.addToken('LBRACE', '{'); break;
@@ -53,16 +52,8 @@ class Lexer {
         case '+': this.addToken('PLUS', '+'); break;
         case '-': this.addToken('MINUS', '-'); break;
         case '*': this.addToken('STAR', '*'); break;
-        case '/': this.addToken('SLASH', '/'); break; 
-        case '=':
-          if (this.peekNext() === '=') {
-            this.addToken('EQUALS_EQUALS', '==');
-            this.current++;
-            this.col++;
-          } else {
-            this.addToken('ASSIGN', '=');
-          }
-          break;
+        case '/': this.addToken('SLASH', '/'); break;
+        case '=': this.addToken('ASSIGN', '='); break;
         default:
           console.error(pc.red(`\nLEX_001: Unexpected character '${pc.bold(char)}' at ${this.line}:${this.col}`));
           process.exit(1);
@@ -74,16 +65,12 @@ class Lexer {
     return this.tokens;
   }
 
-readIdentifier() {
+  readIdentifier() {
     let value = '';
     const startCol = this.col;
-    
     while (!this.isAtEnd() && /[a-zA-Z0-9_\.]/.test(this.peek())) {
       value += this.advance();
     }
-    
-    if (value.length === 0) return;
-
     const type = this.keywords[value] || 'IDENTIFIER';
     this.tokens.push({ type, value, line: this.line, col: startCol });
   }
@@ -100,10 +87,6 @@ readIdentifier() {
     let value = '';
     const startCol = this.col;
     while (this.peek() !== '"' && !this.isAtEnd()) {
-      if (this.peek() === '\n') {
-        console.error(pc.red(`\nLEX_002: Unterminated string at ${this.line}:${this.col}`));
-        process.exit(1);
-      }
       value += this.advance();
     }
     this.advance();
@@ -111,7 +94,6 @@ readIdentifier() {
   }
 
   peek() { return this.source[this.current] || null; }
-  peekNext() { if (this.current + 1 >= this.source.length) return null; return this.source[this.current + 1]; }
   advance() { const char = this.source[this.current++]; this.col++; return char; }
   isAtEnd() { return this.current >= this.source.length; }
   addToken(type, value) { this.tokens.push({ type, value, line: this.line, col: this.col }); }
