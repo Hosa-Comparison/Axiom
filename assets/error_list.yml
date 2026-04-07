@@ -1,0 +1,48 @@
+errors:
+  - id: LEX_001
+    name: UNEXPECTED_CHARACTER
+    message: "Unexpected character found: '{char}'"
+    color: "red"
+    solution: "Remove the character or check if it's a typo."
+
+  - id: LEX_002
+    name: UNTERMINATED_STRING
+    message: "String constant was never closed."
+    color: "red"
+    solution: "Add a matching quote at the end of the string."
+
+  - id: PAR_001
+    name: MISSING_SEMICOLON
+    message: "Expected ';' after expression."
+    color: "yellow"
+    solution: "Ensure every statement ends with a semicolon."
+
+  - id: PAR_002
+    name: UNEXPECTED_TOKEN
+    message: "Expected {expected}, but found {found}."
+    color: "red"
+    solution: "Check the syntax of your statement."
+
+  - id: SEM_001
+    name: UNDEFINED_VARIABLE
+    message: "Variable '{name}' is not defined in this scope."
+    color: "red"
+    solution: "Declare the variable before using it."
+
+  - id: SEM_002
+    name: UNDEFINED_FUNCTION
+    message: "Function '{name}' is not defined."
+    color: "red"
+    solution: "Check spelling and casing; '{name}' does not exist."
+
+  - id: RUN_001
+    name: DIVISION_BY_ZERO
+    message: "Cannot divide by zero."
+    color: "red"
+    solution: "Add a check to ensure the denominator is not zero."
+
+  - id: RUN_002
+    name: STACK_OVERFLOW
+    message: "Maximum recursion depth exceeded."
+    color: "magenta"
+    solution: "Check for infinite loops or deep recursive calls."
