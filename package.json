@@ -1,4 +1,7 @@
 {
+  "comment": {
+    "message": "DO NOT CHANGE ANYTHING HERE!"
+  },
   "name": "axiom",
   "version": "1.0.0",
   "description": "Axiom is a programming language - made with JavaScript.",
